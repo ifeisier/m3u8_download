@@ -1,0 +1,43 @@
+[package]
+name = "m3u8_download"
+version = "0.1.0"
+edition = "2021"
+authors = ["ifeisier <ifeisier@hotmail.com>"]
+description = "m3u8视频下载器"
+repository = "https://github.com/ifeisier/m3u8_download"
+license = "MIT"
+
+
+[profile.dev]
+lto = false
+opt-level = 0
+debug = true
+
+[profile.release]
+lto = "fat"
+opt-level = 3
+debug = false
+
+
+[dependencies]
+reqwest = { version = "0.12.8", default-features = false, features = ["blocking", "json", "native-tls"] }
+# native-tls = "0.2.12"
+
+anyhow = "1.0.91"
+regex = "1.11.1"
+log = "0.4.22"
+flexi_logger = "0.29.4"
+
+
+
+# AES 加密库
+aes = "0.8.4"
+cbc = "0.1.2"
+hex = "0.4.3"
+
+
+
+# 异步编程依赖
+tokio = { version = "1.40.0", default-features = false, features = ["rt", "rt-multi-thread", "net", "signal", "time", "sync"] }
+futures = "0.3.31"
+futures-util = "0.3.31"
