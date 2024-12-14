@@ -1,0 +1,16 @@
+[package]
+name = "utils"
+version = "0.0.1"
+edition = "2021"
+authors = ["ifeisier <ifeisier@hotmail.com>"]
+description = "rust 工具模块"
+license = "MIT"
+
+[dependencies]
+log = { workspace = true }
+flexi_logger = { workspace = true }
+anyhow = { workspace = true }
+rand = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
