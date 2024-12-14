@@ -14,3 +14,5 @@ rand = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+aes = { workspace = true }
+cbc = { workspace = true }

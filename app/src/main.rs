@@ -2,12 +2,12 @@
 
 //! 应用程序入口
 
-use utils::flexi_logger;
 use tokio::{
     runtime::{Builder, Runtime},
     signal,
     time::Duration,
 };
+use utils::flexi_logger;
 
 fn main() {
     let logger = flexi_logger::init_flexi_logger().unwrap();

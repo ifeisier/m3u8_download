@@ -8,8 +8,14 @@ use reqwest::{
     Client, RequestBuilder,
 };
 use std::sync::LazyLock;
+use std::time::Duration;
 
-static CLIENT: LazyLock<Client> = LazyLock::new(|| Client::new());
+static CLIENT: LazyLock<Client> = LazyLock::new(|| {
+    Client::builder()
+        .timeout(Duration::from_secs(60 * 30))
+        .build()
+        .unwrap()
+});
 
 /// 配置 Request
 fn config_request(request: RequestBuilder) -> RequestBuilder {

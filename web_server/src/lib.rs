@@ -19,6 +19,7 @@ pub async fn run<A: std::net::ToSocketAddrs>(addrs: A) -> anyhow::Result<()> {
         App::new()
             // .wrap(Logger::default()) // 导入: actix_web::middleware::Logger
             .service(guard_header_json("/sys").configure(controller::sys::config))
+            .service(guard_header_json("/download").configure(controller::download::config))
     };
     HttpServer::new(app)
         .workers(8)
