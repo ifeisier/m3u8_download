@@ -8,5 +8,5 @@ license = "MIT"
 
 [dependencies]
 tokio = { workspace = true }
-commons = { path = "../commons", version = "0.0.1" }
+utils = { path = "../utils", version = "0.0.1" }
 web_server = { path = "../web_server", version = "0.0.1" }
