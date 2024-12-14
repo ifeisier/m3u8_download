@@ -1,0 +1,40 @@
+[workspace]
+members = [ 
+    "app", 
+    "commons",
+    "web_server",
+]
+resolver = "2"
+
+[profile.dev]
+lto = false
+opt-level = 0
+debug = true
+
+[profile.release]
+lto = "fat"
+opt-level = "z"
+debug = false
+panic = "abort"
+codegen-units = 1
+overflow-checks = false
+debug-assertions = false
+
+[workspace.dependencies]
+anyhow = "1.0.93"
+thiserror = "2.0.7"
+log = "0.4.22"
+flexi_logger = "0.29.6"
+serde = { version = "1.0.204", default-features = false, features = ["derive"] }
+serde_json = "1.0.128"
+
+tokio = { version = "1.39.2", default-features = false, features = ["rt", "rt-multi-thread", "net", "fs", "time", "sync", "signal"] }
+
+r2d2 = "0.8.10"
+redis = { version = "0.27.5", default-features = false, features = ["r2d2", "script"] }
+mysql = { version = "25.0.1", features = ["rust_decimal", "chrono"]}
+
+rumqttc = "0.24.0"
+
+actix-web = { version = "4.8.0" }
+reqwest = { version = "0.12.5", default-features = false, features = ["blocking", "json"] }

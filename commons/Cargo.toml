@@ -1,0 +1,17 @@
+[package]
+name = "commons"
+version = "0.0.1"
+edition = "2021"
+authors = ["ifeisier <ifeisier@hotmail.com>"]
+description = "包含了各种公共的、重复使用的代码, 用来减少冗余代码, 提升代码的可维护性和复用性."
+license = "MIT"
+
+[dependencies]
+log = { workspace = true }
+flexi_logger = { workspace = true }
+anyhow = { workspace = true }
+mysql = { workspace = true }
+r2d2 = { workspace = true }
+redis = { workspace = true }
+rumqttc = { workspace = true }
+tokio = { workspace = true }

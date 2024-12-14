@@ -1,0 +1,16 @@
+[package]
+name = "web_server"
+version = "0.0.1"
+edition = "2021"
+authors = ["ifeisier <ifeisier@hotmail.com>"]
+description = "web 服务"
+license = "MIT"
+
+
+[dependencies]
+log = { workspace = true }
+actix-web = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }

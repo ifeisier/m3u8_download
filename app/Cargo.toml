@@ -1,0 +1,12 @@
+[package]
+name = "app"
+version = "0.0.1"
+edition = "2021"
+authors = ["ifeisier <ifeisier@hotmail.com>"]
+description = "入口程序."
+license = "MIT"
+
+[dependencies]
+tokio = { workspace = true }
+commons = { path = "../commons", version = "0.0.1" }
+web_server = { path = "../web_server", version = "0.0.1" }
