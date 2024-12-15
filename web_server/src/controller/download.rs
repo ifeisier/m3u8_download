@@ -8,7 +8,7 @@ use regex::Regex;
 use serde::Deserialize;
 use tokio::fs;
 use tokio::process::Command;
-use utils::enc_dec::aes::Aes128CbcDec;
+use utils::enc_dec::aes::Aes128Cbc;
 use utils::reqwest;
 
 /// 配置 download scope 下的接口
@@ -16,7 +16,7 @@ pub(crate) fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(download);
 }
 
-const BASIC_PATH: &str = "D:\\0.项目\\m3u8_download";
+const BASIC_PATH: &str = "./download";
 
 /// 下载信息
 #[derive(Deserialize, Debug)]
@@ -30,9 +30,16 @@ struct DownloadInfo {
 /// 路径信息
 #[derive(Deserialize, Debug)]
 struct PathInfo {
-    basic: String,
+    /// 视频组路径
+    path: String,
+    /// ts 转换后的 mp4 路径
+    mp4: String,
+    /// 视频下载缓存
     cache: String,
-    ts_url_path: String,
+    /// 合并后的 ts 视频路径
+    cache_ts: String,
+    /// 要下载的 ts 视频 url
+    ts_url: String,
     enc_key: Option<String>,
     iv: Option<Vec<u8>>,
 }
@@ -49,21 +56,37 @@ async fn download(query: actix_web::Result<web::Query<DownloadInfo>>) -> impl Re
     let download_info = query.unwrap();
 
     let mut path_info = PathInfo {
-        basic: format!(
-            "{}/{}/{}/{}",
+        mp4: format!(
+            "{}/{}/{}/cache/{}/{}.mp4",
+            BASIC_PATH,
+            download_info.user,
+            download_info.name,
+            download_info.file,
+            download_info.file
+        ),
+        path: format!(
+            "{}/{}/{}/{}.mp4",
             BASIC_PATH, download_info.user, download_info.name, download_info.file
         ),
         cache: format!(
             "{}/{}/{}/cache/{}",
             BASIC_PATH, download_info.user, download_info.name, download_info.file
         ),
-        ts_url_path: "".to_owned(),
+        cache_ts: format!(
+            "{}/{}/{}/cache/{}/{}.ts",
+            BASIC_PATH,
+            download_info.user,
+            download_info.name,
+            download_info.file,
+            download_info.file
+        ),
+        ts_url: "".to_owned(),
         enc_key: None,
         iv: None,
     };
 
     fs::create_dir_all(&path_info.cache).await.unwrap();
-    path_info.ts_url_path = format!("{}/ts_url.txt", &path_info.cache);
+    path_info.ts_url = format!("{}/ts_url.txt", &path_info.cache);
 
     let result = reqwest::get(&download_info.url).await;
     if let Err(e) = result {
@@ -84,7 +107,7 @@ async fn download(query: actix_web::Result<web::Query<DownloadInfo>>) -> impl Re
         ts_url.push_str(&cap[0].to_owned());
         ts_url.push('\n');
     }
-    fs::write(&path_info.ts_url_path, &ts_url).await.unwrap();
+    fs::write(&path_info.ts_url, &ts_url).await.unwrap();
 
     let key_regex = Regex::new(
         r#"#EXT-X-KEY:METHOD=(?P<method>[^,]+),URI="(?P<uri>[^"]+)",IV=(?P<iv>0x[0-9A-Fa-f]+)"#,
@@ -142,78 +165,64 @@ async fn download(query: actix_web::Result<web::Query<DownloadInfo>>) -> impl Re
 
 /// 创建下载任务
 async fn create_download_task(path_info: PathInfo) {
-    // let mut command = Command::new("aria2c.exe");
-    // command.current_dir(&path);
-    // command.arg("-j").arg("2");
-    // command.arg("--max-tries").arg("10");
-    // command.arg("--retry-wait").arg("30");
-    // command.arg("-i").arg("ts_url.txt");
+    let mut command = Command::new("aria2c");
+    command.current_dir(&path_info.cache);
+    command.arg("-j").arg("2");
+    command.arg("--max-tries").arg("10");
+    command.arg("--retry-wait").arg("30");
+    command.arg("-i").arg("ts_url.txt");
 
-    // let mut child = command.spawn().expect("Failed to start command");
-    // let output = child.wait().await.unwrap();
-    // if output.success() {
+    let mut child = command.spawn().expect("Failed to start command");
+    let output = child.wait().await.unwrap();
+    if output.success() {
+    } else {
+        fs::remove_dir_all(&path_info.cache).await.unwrap();
+        return;
+    }
 
-    // } else {
-    //     fs::remove_dir_all(&path).await.unwrap();
-    //     return;
-    // }
+    merge_and_clear_cache(path_info).await;
+}
 
-    // 获取文件绝对路径
+/// 合并和清除缓存
+async fn merge_and_clear_cache(path_info: PathInfo) {
+    log::info!("合并和清除缓存: {:?}.", path_info);
     let mut file_paths = Vec::with_capacity(100);
-    let t = fs::read_to_string(path_info.ts_url_path).await.unwrap();
+    let t = fs::read_to_string(path_info.ts_url).await.unwrap();
     let sd = t.split("\n").collect::<Vec<_>>();
     for s in sd {
+        if s == "" {
+            continue;
+        }
         let v: Vec<&str> = s.split('/').collect();
         let file_name = v.last().unwrap();
-        let file_path = format!("{}/{}", path_info.basic, file_name);
+        let file_path = format!("{}/{}", path_info.cache, file_name);
         file_paths.push(file_path);
     }
-    println!("file_paths: {:?}", file_paths);
-
     let mut result = Vec::with_capacity(1024);
     if let Some(enc_key) = path_info.enc_key {
         let enc_key = &enc_key.into_bytes();
         let iv = &path_info.iv.unwrap();
         for file_path in file_paths {
             let mut e = fs::read(file_path).await.unwrap();
-            let r = Aes128CbcDec::dec(&mut e, enc_key, iv);
-            result.push(r);
+            let r = Aes128Cbc::dec(&mut e, enc_key, iv);
+            result.extend(r);
         }
     } else {
         for file_path in file_paths {
             let e = fs::read(file_path).await.unwrap();
-            result.push(e);
+            result.extend(e);
         }
     }
+    let _ = fs::write(&path_info.cache_ts, result).await;
 
-    // fs::write(path, result);
-
-    // 获取 path 下的所有 ts 格式的文件
-    // let ts_files = std::fs::read_dir(&path).unwrap();
-    // let mut ts_file_names = Vec::new();
-    // for ts_file in ts_files {
-    //     let ts_file = ts_file.unwrap();
-    //     let file_name = ts_file.file_name();
-    //     let file_name = file_name.to_str().unwrap();
-    //     if file_name.ends_with(".ts") {
-    //         ts_file_names.push(file_name.to_string());
-    //     }
-    // }
-
-    // ts_file_names.sort_by(|a, b| {
-    //     let a_num: usize = a
-    //         .trim_start_matches("plist")
-    //         .trim_end_matches(".ts")
-    //         .parse()
-    //         .unwrap_or(0);
-    //     let b_num: usize = b
-    //         .trim_start_matches("plist")
-    //         .trim_end_matches(".ts")
-    //         .parse()
-    //         .unwrap_or(0);
-
-    //     a_num.cmp(&b_num)
-    // });
-
-    // println!("ts_file_names: {:#?}", ts_file_names);
+    // 转 mp4
+    let mut command = Command::new("ffmpeg");
+    command.arg("-i").arg(path_info.cache_ts);
+    command.arg("-c:v").arg("copy");
+    command.arg("-c:a").arg("aac");
+    command.arg(&path_info.mp4);
+    let mut child = command.spawn().expect("Failed to start command");
+    let _ = child.wait().await.unwrap();
+    let _ = fs::copy(&path_info.mp4, &path_info.path).await;
+    let _ = fs::remove_dir_all(&path_info.cache).await;
 }
