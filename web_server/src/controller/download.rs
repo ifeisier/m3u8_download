@@ -16,7 +16,7 @@ pub(crate) fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(download);
 }
 
-const BASIC_PATH: &str = "./download";
+const BASIC_PATH: &str = "/home";
 
 /// 下载信息
 #[derive(Deserialize, Debug)]
@@ -57,7 +57,7 @@ async fn download(query: actix_web::Result<web::Query<DownloadInfo>>) -> impl Re
 
     let mut path_info = PathInfo {
         mp4: format!(
-            "{}/{}/{}/cache/{}/{}.mp4",
+            "{}/{}/chroot/{}/cache/{}/{}.mp4",
             BASIC_PATH,
             download_info.user,
             download_info.name,
@@ -65,15 +65,15 @@ async fn download(query: actix_web::Result<web::Query<DownloadInfo>>) -> impl Re
             download_info.file
         ),
         path: format!(
-            "{}/{}/{}/{}.mp4",
+            "{}/{}/chroot/{}/{}.mp4",
             BASIC_PATH, download_info.user, download_info.name, download_info.file
         ),
         cache: format!(
-            "{}/{}/{}/cache/{}",
+            "{}/{}/chroot/{}/cache/{}",
             BASIC_PATH, download_info.user, download_info.name, download_info.file
         ),
         cache_ts: format!(
-            "{}/{}/{}/cache/{}/{}.ts",
+            "{}/{}/chroot/{}/cache/{}/{}.ts",
             BASIC_PATH,
             download_info.user,
             download_info.name,
@@ -90,7 +90,7 @@ async fn download(query: actix_web::Result<web::Query<DownloadInfo>>) -> impl Re
 
     let result = reqwest::get(&download_info.url).await;
     if let Err(e) = result {
-        log::error!("下载失败: {}", e);
+        log::error!("下载失败: {:?}", e);
         return JsonResponse::<()> {
             code: 400,
             message: "下载失败".to_string(),
