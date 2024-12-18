@@ -17,6 +17,7 @@ pub(crate) fn config(cfg: &mut web::ServiceConfig) {
 }
 
 const BASIC_PATH: &str = "/home";
+// const BASIC_PATH: &str = "./download";
 
 /// 下载信息
 #[derive(Deserialize, Debug)]
@@ -32,6 +33,10 @@ struct DownloadInfo {
 struct PathInfo {
     /// 视频组路径
     path: String,
+    // linux 用户组
+    user_groups: String,
+    // 最终路径
+    final_path: String,
     /// ts 转换后的 mp4 路径
     mp4: String,
     /// 视频下载缓存
@@ -56,6 +61,7 @@ async fn download(query: actix_web::Result<web::Query<DownloadInfo>>) -> impl Re
     let download_info = query.unwrap();
 
     let mut path_info = PathInfo {
+        user_groups: format!("{}:{}", download_info.user, download_info.user),
         mp4: format!(
             "{}/{}/chroot/{}/cache/{}/{}.mp4",
             BASIC_PATH,
@@ -65,6 +71,10 @@ async fn download(query: actix_web::Result<web::Query<DownloadInfo>>) -> impl Re
             download_info.file
         ),
         path: format!(
+            "{}/{}/chroot/{}",
+            BASIC_PATH, download_info.user, download_info.name
+        ),
+        final_path: format!(
             "{}/{}/chroot/{}/{}.mp4",
             BASIC_PATH, download_info.user, download_info.name, download_info.file
         ),
@@ -223,6 +233,13 @@ async fn merge_and_clear_cache(path_info: PathInfo) {
     command.arg(&path_info.mp4);
     let mut child = command.spawn().expect("Failed to start command");
     let _ = child.wait().await.unwrap();
-    let _ = fs::copy(&path_info.mp4, &path_info.path).await;
+    let _ = fs::copy(&path_info.mp4, &path_info.final_path).await;
     let _ = fs::remove_dir_all(&path_info.cache).await;
+
+    let mut command = Command::new("chown");
+    command.arg(path_info.user_groups);
+    command.arg(&path_info.path);
+    command.arg(&path_info.final_path);
+    let mut child = command.spawn().expect("Failed to start command");
+    let _ = child.wait().await.unwrap();
 }
