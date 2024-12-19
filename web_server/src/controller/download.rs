@@ -63,7 +63,7 @@ async fn download(query: actix_web::Result<web::Query<DownloadInfo>>) -> impl Re
     let mut path_info = PathInfo {
         user_groups: format!("{}:{}", download_info.user, download_info.user),
         mp4: format!(
-            "{}/{}/chroot/{}/cache/{}/{}.mp4",
+            "{}/{}/chroot/download/{}/cache/{}/{}.mp4",
             BASIC_PATH,
             download_info.user,
             download_info.name,
@@ -71,19 +71,19 @@ async fn download(query: actix_web::Result<web::Query<DownloadInfo>>) -> impl Re
             download_info.file
         ),
         path: format!(
-            "{}/{}/chroot/{}",
+            "{}/{}/chroot/download/{}",
             BASIC_PATH, download_info.user, download_info.name
         ),
         final_path: format!(
-            "{}/{}/chroot/{}/{}.mp4",
+            "{}/{}/chroot/download/{}/{}.mp4",
             BASIC_PATH, download_info.user, download_info.name, download_info.file
         ),
         cache: format!(
-            "{}/{}/chroot/{}/cache/{}",
+            "{}/{}/chroot/download/{}/cache/{}",
             BASIC_PATH, download_info.user, download_info.name, download_info.file
         ),
         cache_ts: format!(
-            "{}/{}/chroot/{}/cache/{}/{}.ts",
+            "{}/{}/chroot/download/{}/cache/{}/{}.ts",
             BASIC_PATH,
             download_info.user,
             download_info.name,
