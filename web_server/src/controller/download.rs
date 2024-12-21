@@ -7,6 +7,7 @@ use actix_web::{get, Responder};
 use regex::Regex;
 use serde::Deserialize;
 use tokio::fs;
+use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use utils::enc_dec::aes::Aes128Cbc;
 use utils::reqwest;
@@ -45,7 +46,7 @@ struct PathInfo {
     cache_ts: String,
     /// 要下载的 ts 视频 url
     ts_url: String,
-    enc_key: Option<String>,
+    enc_key: Option<Vec<u8>>,
     iv: Option<Vec<u8>>,
 }
 
@@ -108,22 +109,14 @@ async fn download(query: actix_web::Result<web::Query<DownloadInfo>>) -> impl Re
         };
     }
     let m3u8 = result.unwrap();
+    let text = String::from_utf8_lossy(&m3u8);
+    let m3u8 = text.into_owned();
 
-    // 提取 ts url 连接
-    // let mut ts_url = Vec::new();
-    let mut ts_url = "".to_owned();
-    let ts_regex = Regex::new(r"https?://[^\s]+\.ts").unwrap();
-    for cap in ts_regex.captures_iter(&m3u8) {
-        ts_url.push_str(&cap[0].to_owned());
-        ts_url.push('\n');
-    }
-    fs::write(&path_info.ts_url, &ts_url).await.unwrap();
-
+    // 提取 vi 和 key
     let key_regex = Regex::new(
         r#"#EXT-X-KEY:METHOD=(?P<method>[^,]+),URI="(?P<uri>[^"]+)",IV=(?P<iv>0x[0-9A-Fa-f]+)"#,
     )
     .unwrap();
-
     let key_caps = key_regex.captures(&m3u8);
     let enc_key_url = key_caps.as_ref().and_then(|key_caps| {
         key_caps.name("uri").and_then(|v| {
@@ -137,8 +130,8 @@ async fn download(query: actix_web::Result<web::Query<DownloadInfo>>) -> impl Re
     });
     if let Some(enc_key_url) = enc_key_url {
         match reqwest::get(&enc_key_url).await {
-            Ok(v) => {
-                path_info.enc_key = Some(v);
+            Ok(binary_string) => {
+                path_info.enc_key = Some(binary_string.to_vec());
                 path_info.iv = Some(
                     hex::decode(
                         key_caps
@@ -161,6 +154,15 @@ async fn download(query: actix_web::Result<web::Query<DownloadInfo>>) -> impl Re
             }
         }
     }
+
+    // 提取 ts url 连接
+    let ttt = m3u8.clone();
+    let ts_url = ttt
+        .split("\n")
+        .filter(|line| line.starts_with("http"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    fs::write(&path_info.ts_url, &ts_url).await.unwrap();
 
     tokio::spawn(async move {
         log::info!("准备下载: {:?}.", path_info);
@@ -203,27 +205,34 @@ async fn merge_and_clear_cache(path_info: PathInfo) {
         if s == "" {
             continue;
         }
-        let v: Vec<&str> = s.split('/').collect();
+        let v: Vec<&str> = s.split('?').collect();
+        let v: Vec<&str> = v[0].split('/').collect();
         let file_name = v.last().unwrap();
         let file_path = format!("{}/{}", path_info.cache, file_name);
         file_paths.push(file_path);
     }
-    let mut result = Vec::with_capacity(1024);
+
+    let mut file = fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(&path_info.cache_ts)
+        .await
+        .unwrap();
     if let Some(enc_key) = path_info.enc_key {
-        let enc_key = &enc_key.into_bytes();
         let iv = &path_info.iv.unwrap();
         for file_path in file_paths {
             let mut e = fs::read(file_path).await.unwrap();
-            let r = Aes128Cbc::dec(&mut e, enc_key, iv);
-            result.extend(r);
+            let r = Aes128Cbc::dec(&mut e, &enc_key, iv);
+            file.write_all(&r).await.unwrap();
+            drop(r);
         }
     } else {
         for file_path in file_paths {
-            let e = fs::read(file_path).await.unwrap();
-            result.extend(e);
+            let r = fs::read(file_path).await.unwrap();
+            file.write_all(&r).await.unwrap();
+            drop(r);
         }
     }
-    let _ = fs::write(&path_info.cache_ts, result).await;
 
     // 转 mp4
     let mut command = Command::new("ffmpeg");
