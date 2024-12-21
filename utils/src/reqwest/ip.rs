@@ -27,7 +27,8 @@ pub async fn get_coordinates_from_ip(ip_address: &str) -> Result<Coordinates> {
     );
     let response = reqwest::get(&url).await?;
 
-    let response = serde_json::from_str::<serde_json::Value>(&response).unwrap();
+    let text = String::from_utf8_lossy(&response);
+    let response = serde_json::from_str::<serde_json::Value>(&text.into_owned()).unwrap();
     let response = match response.as_object() {
         Some(v) => v,
         None => bail!("响应数据错误: {:?}", response),
