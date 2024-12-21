@@ -8,6 +8,7 @@ mod response;
 
 use crate::response::JsonResponse;
 
+use actix_cors::Cors;
 use actix_web::{web, App, HttpServer, Responder, Scope};
 
 /// 运行 web 服务
@@ -18,6 +19,12 @@ pub async fn run<A: std::net::ToSocketAddrs>(addrs: A) -> anyhow::Result<()> {
     let app = || {
         App::new()
             // .wrap(Logger::default()) // 导入: actix_web::middleware::Logger
+            .wrap(
+                Cors::default()
+                    .allowed_origin("http://127.0.0.1:9090")
+                    .allowed_origin("http://178.236.44.188:9090")
+                    .allowed_methods(vec!["GET"]),
+            )
             .service(guard_header_json("/sys").configure(controller::sys::config))
             .service(guard_header_json("/download").configure(controller::download::config))
     };
