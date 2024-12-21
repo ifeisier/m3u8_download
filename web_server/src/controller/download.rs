@@ -38,6 +38,8 @@ struct PathInfo {
     user_groups: String,
     // 最终路径
     final_path: String,
+    // 最终名字
+    finish: String,
     /// ts 转换后的 mp4 路径
     mp4: String,
     /// 视频下载缓存
@@ -77,6 +79,10 @@ async fn download(query: actix_web::Result<web::Query<DownloadInfo>>) -> impl Re
         ),
         final_path: format!(
             "{}/{}/chroot/downloads/{}/{}.mp4",
+            BASIC_PATH, download_info.user, download_info.name, download_info.file
+        ),
+        finish: format!(
+            "{}/{}/chroot/downloads/{}/完_{}.mp4",
             BASIC_PATH, download_info.user, download_info.name, download_info.file
         ),
         cache: format!(
@@ -184,7 +190,7 @@ async fn create_download_task(path_info: PathInfo) {
     command.arg("--retry-wait").arg("30");
     command.arg("-i").arg("ts_url.txt");
 
-    let mut child = command.spawn().expect("Failed to start command");
+    let mut child = command.spawn().unwrap();
     let output = child.wait().await.unwrap();
     if output.success() {
     } else {
@@ -240,15 +246,20 @@ async fn merge_and_clear_cache(path_info: PathInfo) {
     command.arg("-c:v").arg("copy");
     command.arg("-c:a").arg("aac");
     command.arg(&path_info.mp4);
-    let mut child = command.spawn().expect("Failed to start command");
+    let mut child = command.spawn().unwrap();
     let _ = child.wait().await.unwrap();
     let _ = fs::copy(&path_info.mp4, &path_info.final_path).await;
     let _ = fs::remove_dir_all(&path_info.cache).await;
+    let mut command = Command::new("mv");
+    command.arg(&path_info.final_path);
+    command.arg(&path_info.finish);
+    let mut child = command.spawn().unwrap();
+    let _ = child.wait().await.unwrap();
 
     let mut command = Command::new("chown");
     command.arg(path_info.user_groups);
     command.arg(&path_info.path);
     command.arg(&path_info.final_path);
-    let mut child = command.spawn().expect("Failed to start command");
+    let mut child = command.spawn().unwrap();
     let _ = child.wait().await.unwrap();
 }
